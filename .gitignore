@@ -1,0 +1,19 @@
+# Dépendances Node.js
+node_modules/
+package-lock.json
+
+# Environnement et secrets
+.env
+.env.local
+
+# Fichiers de build
+dist/
+build/
+
+# Fichiers système macOS
+.DS_Store
+
+# Logs
+*.log
+npm-debug.log*
+
