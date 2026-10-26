@@ -1,0 +1,18 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: running_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: shoesdurability
+      POSTGRES_PASSWORD: durability
+      POSTGRES_DB: running_tracker
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+
+volumes:
+  pgdata:
+
