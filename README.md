@@ -146,7 +146,7 @@ Le backend exploite les variables définies dans `backend/.env`.
 
 ---
 
-## Scénario de Démonstration en Direct (Évaluation)
+## Scénario de Démonstration en Direct
 
 1. **Constat initial côté laboratoire** :
    * Ouvrir `http://localhost:5173` en **Vue Ingénieur**.
