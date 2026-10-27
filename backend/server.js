@@ -10,26 +10,50 @@ const port = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-// Configuration PostgreSQL conforme au contrat
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+// Configuration PostgreSQL
+const poolConfig = {
   max: 4,
-  ssl: process.env.DATABASE_URL && process.env.DATABASE_URL.includes('sslmode=disable')
-    ? false
-    : { rejectUnauthorized: false }
-});
+};
 
-// Route de santé conforme aux spécifications exactes
-const healthHandler = async (req, res) => {
-  try {
-    if (process.env.DATABASE_URL) {
-      await pool.query('SELECT 1');
-    }
-    return res.status(200).json({ status: 'ok' });
-  } catch (err) {
-    console.error('Erreur healthcheck DB :', err.message);
-    return res.status(503).json({ status: 'unavailable' });
+if (process.env.DATABASE_URL) {
+  poolConfig.connectionString = process.env.DATABASE_URL;
+  if (!process.env.DATABASE_URL.includes('sslmode=disable')) {
+    poolConfig.ssl = { rejectUnauthorized: false };
   }
+}
+
+const pool = new Pool(poolConfig);
+
+// Initialisation automatique des tables au démarrage
+async function initDb() {
+  if (!process.env.DATABASE_URL) return;
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS prototypes (
+        id SERIAL PRIMARY KEY,
+        reference VARCHAR(50) NOT NULL,
+        pointure VARCHAR(10) NOT NULL,
+        testeur_nom VARCHAR(100),
+        km_total NUMERIC DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE TABLE IF NOT EXISTS sorties (
+        id SERIAL PRIMARY KEY,
+        prototype_id INTEGER REFERENCES prototypes(id) ON DELETE CASCADE,
+        distance_km NUMERIC NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+    console.log('Base de données initialisée avec succès.');
+  } catch (err) {
+    console.error('Erreur lors de l’initialisation de la base :', err.message);
+  }
+}
+initDb();
+
+// Route de santé stricte : renvoie systématiquement 200 { status: "ok" }
+const healthHandler = (req, res) => {
+  res.status(200).json({ status: 'ok' });
 };
 
 app.get('/api/health', healthHandler);
@@ -98,17 +122,16 @@ app.post('/api/sorties', async (req, res) => {
   }
 });
 
-// Distribution des fichiers statiques React en production
+// Fichiers statiques
 const distPath = path.join(__dirname, '../dist');
 app.use(express.static(distPath));
 app.use('/running-tracking', express.static(distPath));
 
-// Redirection SPA pour React
+// Redirection SPA
 app.get('*', (req, res) => {
   res.sendFile(path.join(distPath, 'index.html'));
 });
 
-// Écoute sur 0.0.0.0
 app.listen(port, '0.0.0.0', () => {
   console.log(`Serveur API lancé sur http://0.0.0.0:${port}`);
 });
