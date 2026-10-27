@@ -15,9 +15,15 @@ function App() {
     try {
       const res = await fetch(`${import.meta.env.BASE_URL}api/prototypes`);
       const data = await res.json();
-      setPrototypes(data);
+      if (Array.isArray(data)) {
+        setPrototypes(data);
+      } else {
+        console.error('Données invalides reçues :', data);
+        setPrototypes([]);
+      }
     } catch (err) {
       console.error('Erreur chargement:', err);
+      setPrototypes([]);
     }
   };
 
@@ -25,11 +31,13 @@ function App() {
     fetchPrototypes();
   }, []);
 
+  const safePrototypes = Array.isArray(prototypes) ? prototypes : [];
+
   const assignedTesters = Array.from(
-    new Set(prototypes.map((p) => p.testeur_nom).filter(Boolean))
+    new Set(safePrototypes.map((p) => p.testeur_nom).filter(Boolean))
   );
 
-  const myPrototypes = prototypes.filter((p) => p.testeur_nom === currentTester);
+  const myPrototypes = safePrototypes.filter((p) => p.testeur_nom === currentTester);
 
   useEffect(() => {
     if (myPrototypes.length > 0) {
@@ -37,7 +45,7 @@ function App() {
     } else {
       setSelectedProto('');
     }
-  }, [currentTester, prototypes]);
+  }, [currentTester, safePrototypes]);
 
   const handleAddRun = async (e) => {
     e.preventDefault();
@@ -105,8 +113,8 @@ function App() {
   };
 
   // KPIs
-  const totalKmGlobaux = prototypes.reduce((acc, p) => acc + parseFloat(p.km_total || 0), 0);
-  const nbAlertes = prototypes.filter((p) => parseFloat(p.km_total) >= 150).length;
+  const totalKmGlobaux = safePrototypes.reduce((acc, p) => acc + parseFloat(p.km_total || 0), 0);
+  const nbAlertes = safePrototypes.filter((p) => parseFloat(p.km_total) >= 150).length;
 
   return (
     <div className="app-shell">
@@ -144,7 +152,7 @@ function App() {
             <div className="kpi-grid">
               <div className="kpi-card">
                 <span className="kpi-label">Paires suivies</span>
-                <span className="kpi-value">{prototypes.length}</span>
+                <span className="kpi-value">{safePrototypes.length}</span>
               </div>
               <div className="kpi-card">
                 <span className="kpi-label">Kilométrage total panel</span>
@@ -209,7 +217,7 @@ function App() {
                     </tr>
                   </thead>
                   <tbody>
-                    {prototypes.map((p) => {
+                    {safePrototypes.map((p) => {
                       const km = parseFloat(p.km_total);
                       const percent = Math.min((km / 150) * 100, 100);
                       const alerte = km >= 150;
