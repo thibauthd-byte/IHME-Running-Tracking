@@ -10,42 +10,30 @@ const port = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-// Configuration robuste PostgreSQL
-const poolConfig = {
+// Configuration PostgreSQL conforme au contrat
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
   max: 4,
-};
+  ssl: process.env.DATABASE_URL && process.env.DATABASE_URL.includes('sslmode=disable')
+    ? false
+    : { rejectUnauthorized: false }
+});
 
-if (process.env.DATABASE_URL) {
-  poolConfig.connectionString = process.env.DATABASE_URL;
-  // Configuration SSL tolérante pour les certificats internes du serveur du cours
-  if (process.env.DATABASE_URL.includes('sslmode=require') || process.env.NODE_ENV === 'production') {
-    poolConfig.ssl = { rejectUnauthorized: false };
-  }
-}
-
-const pool = new Pool(poolConfig);
-
-// Handler de santé tolérant et réactif
-const healthCheckHandler = async (req, res) => {
-  if (!process.env.DATABASE_URL) {
-    // Si la DB n'est pas encore injectée, répond OK pour ne pas bloquer le démarrage
-    return res.status(200).json({ status: 'ok', warning: 'no DATABASE_URL' });
-  }
+// Route de santé conforme aux spécifications exactes
+const healthHandler = async (req, res) => {
   try {
-    const client = await pool.connect();
-    await client.query('SELECT 1');
-    client.release();
-    res.status(200).json({ status: 'ok' });
+    if (process.env.DATABASE_URL) {
+      await pool.query('SELECT 1');
+    }
+    return res.status(200).json({ status: 'ok' });
   } catch (err) {
-    console.error('Healthcheck DB error:', err.message);
-    // Retourne 200 avec avertissement si le conteneur démarre avant la base, ou 503
-    res.status(200).json({ status: 'ok', db_error: err.message });
+    console.error('Erreur healthcheck DB :', err.message);
+    return res.status(503).json({ status: 'unavailable' });
   }
 };
 
-// Route de santé aux deux formats possibles (direct et sous le sous-chemin)
-app.get('/api/health', healthCheckHandler);
-app.get('/running-tracking/api/health', healthCheckHandler);
+app.get('/api/health', healthHandler);
+app.get('/running-tracking/api/health', healthHandler);
 
 // 1. Lister tous les prototypes
 app.get('/api/prototypes', async (req, res) => {
@@ -115,7 +103,7 @@ const distPath = path.join(__dirname, '../dist');
 app.use(express.static(distPath));
 app.use('/running-tracking', express.static(distPath));
 
-// Redirection SPA pour React Router / navigation
+// Redirection SPA pour React
 app.get('*', (req, res) => {
   res.sendFile(path.join(distPath, 'index.html'));
 });
