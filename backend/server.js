@@ -24,7 +24,7 @@ if (process.env.DATABASE_URL) {
 
 const pool = new Pool(poolConfig);
 
-// Initialisation automatique des tables au démarrage
+// Initialisation des tables
 async function initDb() {
   if (!process.env.DATABASE_URL) return;
   try {
@@ -44,14 +44,14 @@ async function initDb() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
-    console.log('Base de données initialisée avec succès.');
+    console.log('Base de données connectée et tables vérifiées.');
   } catch (err) {
-    console.error('Erreur lors de l’initialisation de la base :', err.message);
+    console.error('Initialisation DB (en attente du serveur) :', err.message);
   }
 }
 initDb();
 
-// Route de santé stricte : renvoie systématiquement 200 { status: "ok" }
+// Routes de santé
 const healthHandler = (req, res) => {
   res.status(200).json({ status: 'ok' });
 };
@@ -59,7 +59,7 @@ const healthHandler = (req, res) => {
 app.get('/api/health', healthHandler);
 app.get('/running-tracking/api/health', healthHandler);
 
-// 1. Lister tous les prototypes
+// API
 app.get('/api/prototypes', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM prototypes ORDER BY id ASC');
@@ -70,7 +70,6 @@ app.get('/api/prototypes', async (req, res) => {
   }
 });
 
-// 2. Ajouter un prototype
 app.post('/api/prototypes', async (req, res) => {
   const { reference, pointure } = req.body;
   try {
@@ -85,7 +84,6 @@ app.post('/api/prototypes', async (req, res) => {
   }
 });
 
-// 3. Assigner un testeur
 app.patch('/api/prototypes/:id/assigner', async (req, res) => {
   const { id } = req.params;
   const { testeur_nom } = req.body;
@@ -101,7 +99,6 @@ app.patch('/api/prototypes/:id/assigner', async (req, res) => {
   }
 });
 
-// 4. Enregistrer une sortie et mettre à jour le kilométrage
 app.post('/api/sorties', async (req, res) => {
   const { prototype_id, distance_km } = req.body;
   try {
@@ -127,8 +124,8 @@ const distPath = path.join(__dirname, '../dist');
 app.use(express.static(distPath));
 app.use('/running-tracking', express.static(distPath));
 
-// Redirection SPA
-app.get('*', (req, res) => {
+// Redirection SPA compatible Express 5
+app.get('{*splat}', (req, res) => {
   res.sendFile(path.join(distPath, 'index.html'));
 });
 
