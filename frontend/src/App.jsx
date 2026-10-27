@@ -13,7 +13,7 @@ function App() {
 
   const fetchPrototypes = async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/prototypes');
+      const res = await fetch(`${import.meta.env.BASE_URL}api/prototypes`);
       const data = await res.json();
       setPrototypes(data);
     } catch (err) {
@@ -44,7 +44,7 @@ function App() {
     if (!selectedProto || !distance) return;
 
     try {
-      const res = await fetch('http://localhost:5000/api/sorties', {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/sorties`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -69,7 +69,7 @@ function App() {
     if (!newRef || !newPointure) return;
 
     try {
-      const res = await fetch('http://localhost:5000/api/prototypes', {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/prototypes`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -93,7 +93,7 @@ function App() {
     if (nom === null) return;
 
     try {
-      await fetch(`http://localhost:5000/api/prototypes/${id}/assigner`, {
+      await fetch(`${import.meta.env.BASE_URL}api/prototypes/${id}/assigner`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ testeur_nom: nom.trim() || null }),

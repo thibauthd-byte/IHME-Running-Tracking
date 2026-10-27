@@ -1,18 +1,31 @@
 require('dotenv').config();
+const path = require('path');
 const express = require('express');
 const cors = require('cors');
 const { Pool } = require('pg');
 
 const app = express();
-const port = process.env.PORT || 5000;
+// Port 3000 par défaut pour le conteneur Docker de production
+const port = process.env.PORT || 3000;
 
 // Middlewares
 app.use(cors());
 app.use(express.json());
 
-// Connexion PostgreSQL
+// Connexion PostgreSQL (pool bridé à 4 connexions max selon les consignes)
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
+  max: 4,
+});
+
+// Route de santé obligatoire (vérifie la connexion à la base)
+app.get('/api/health', async (req, res) => {
+  try {
+    await pool.query('SELECT 1');
+    res.status(200).json({ status: 'ok' });
+  } catch (err) {
+    res.status(503).json({ status: 'unavailable' });
+  }
 });
 
 // 1. Lister tous les prototypes
@@ -61,13 +74,11 @@ app.patch('/api/prototypes/:id/assigner', async (req, res) => {
 app.post('/api/sorties', async (req, res) => {
   const { prototype_id, distance_km } = req.body;
   try {
-    // Insérer la sortie
     await pool.query(
       'INSERT INTO sorties (prototype_id, distance_km) VALUES ($1, $2)',
       [prototype_id, distance_km]
     );
 
-    // Mettre à jour le compteur du prototype
     const result = await pool.query(
       'UPDATE prototypes SET km_total = km_total + $1 WHERE id = $2 RETURNING *',
       [distance_km, prototype_id]
@@ -80,7 +91,16 @@ app.post('/api/sorties', async (req, res) => {
   }
 });
 
-// Lancement du serveur
-app.listen(port, () => {
-  console.log(`Serveur API lancé sur http://localhost:${port}`);
+// Distribution des fichiers statiques React en production
+const distPath = path.join(__dirname, '../dist');
+app.use(express.static(distPath));
+
+// Redirection SPA : renvoie index.html pour les routes non-API
+app.get('*', (req, res) => {
+  res.sendFile(path.join(distPath, 'index.html'));
+});
+
+// Écoute sur 0.0.0.0 (nécessaire pour Docker)
+app.listen(port, '0.0.0.0', () => {
+  console.log(`Serveur API lancé sur http://0.0.0.0:${port}`);
 });
