@@ -102,8 +102,6 @@ SET km_total = km_total + $1
 WHERE id = $2;
 ```
 
-L'état du prototype est calculé selon la règle suivante :
-$$\text{Statut} = \begin{cases} \text{En test}, & \text{si } km\_total < 150 \\ \text{Retour laboratoire requis}, & \text{si } km\_total \ge 150 \end{cases}$$
 
 ### Contrôle des entrées (Backend & Validation)
 - Rejet des distances négatives ou nulles ($\le 0$).
