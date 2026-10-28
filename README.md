@@ -9,14 +9,14 @@ Plateforme web de suivi kilométrique et d'évaluation de la durabilité de prot
 L'application comporte deux espaces distincts accessibles depuis la page d'accueil :
 
 ### 1. Espace Ingénieur R&D (Supervision & Gestion)
-* **URL** : Adresse de l'application communiquée pour la démonstration.
+* **URL** : https://node219697-ihme26.jcloud.ik-server.com/running-tracking/
 * **Onglet / Mode** : Sélectionner **"Connexion ingénieur"**
 * **Identifiant** : `admin`
 * **Mot de passe** : `LaboSalomon2026!`
 * **Rôle** : Créer des prototypes, créer des comptes pour les coureurs, leur assigner des chaussures et suivre l'alerte des 150 km.
 
 ### 2. Espace Testeur / Athlète (Saisie terrain)
-* **URL** : Adresse de l'application communiquée pour la démonstration.
+* **URL** : https://node219697-ihme26.jcloud.ik-server.com/running-tracking/
 * **Onglet / Mode** : Sélectionner **"Connexion testeur"**
 * **Option A (Compte créé par l'ingénieur)** :
   1. Se connecter d'abord en ingénieur (`admin` / `LaboSalomon2026!`).
