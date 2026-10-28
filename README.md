@@ -9,22 +9,22 @@ Plateforme web de suivi kilométrique et d'évaluation de la durabilité de prot
 L'application comporte deux espaces distincts accessibles depuis la page d'accueil :
 
 ### 1. Espace Ingénieur R&D (Supervision & Gestion)
-* **URL** : [http://localhost:5173](http://localhost:5173)
+* **URL** : Adresse de l'application communiquée pour la démonstration.
 * **Onglet / Mode** : Sélectionner **"Connexion ingénieur"**
 * **Identifiant** : `admin`
 * **Mot de passe** : `LaboSalomon2026!`
 * **Rôle** : Créer des prototypes, créer des comptes pour les coureurs, leur assigner des chaussures et suivre l'alerte des 150 km.
 
 ### 2. Espace Testeur / Athlète (Saisie terrain)
-* **URL** : [http://localhost:5173](http://localhost:5173)
+* **URL** : Adresse de l'application communiquée pour la démonstration.
 * **Onglet / Mode** : Sélectionner **"Connexion testeur"**
 * **Option A (Compte créé par l'ingénieur)** :
   1. Se connecter d'abord en ingénieur (`admin` / `LaboSalomon2026!`).
   2. Dans la section *Accès à la plateforme*, créer un testeur (ex. Nom: `Lucas`, Identifiant: `lucas.m`, Mot de passe: `Testeur2026!`).
   3. Déconnecter l'ingénieur, basculer sur l'onglet testeur et se connecter avec ces identifiants.
 * **Option B (Identifiants préconfigurés)** :
-  * **Identifiant** : `thibauthd`
-  * **Mot de passe** : celui défini lors de la création initiale (min. 8 caractères).
+  * **Identifiant** : `lucas`
+  * **Mot de passe** : `Testeur2026!`
 * **Rôle** : Consulter ses paires assignées et enregistrer des séances en kilomètres.
 
 ---
@@ -145,14 +145,14 @@ docker compose up -d
 cd backend
 PORT=3000 node server.js
 ```
-*Le serveur écoute sur [http://localhost:3000](http://localhost:3000).*
+*Le serveur écoute sur le port `3000`.*
 
 ### 3. Démarrer le Frontend
 ```bash
 cd frontend
 npm run dev
 ```
-*L'application est disponible sur [http://localhost:5173](http://localhost:5173).*
+*Vite affiche dans le terminal l'adresse à laquelle l'application est accessible.*
 
 ---
 
