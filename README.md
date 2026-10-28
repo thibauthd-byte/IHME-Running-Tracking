@@ -4,141 +4,159 @@ Plateforme web de suivi kilométrique et d'évaluation de la durabilité de prot
 
 ---
 
+## 🔑 Guide de connexion & Accès aux tests
+
+L'application comporte deux espaces distincts accessibles depuis la page d'accueil :
+
+### 1. Espace Ingénieur R&D (Supervision & Gestion)
+* **URL** : [http://localhost:5173](http://localhost:5173)
+* **Onglet / Mode** : Sélectionner **"Connexion ingénieur"**
+* **Identifiant** : `admin`
+* **Mot de passe** : `IhmeRunning`
+* **Rôle** : Créer des prototypes, créer des comptes pour les coureurs, leur assigner des chaussures et suivre l'alerte des 150 km.
+
+### 2. Espace Testeur / Athlète (Saisie terrain)
+* **URL** : [http://localhost:5173](http://localhost:5173)
+* **Onglet / Mode** : Sélectionner **"Connexion testeur"**
+* **Option A (Compte créé par l'ingénieur)** :
+  1. Se connecter d'abord en ingénieur (`admin` / `IhmeRunning`).
+  2. Dans la section *Accès à la plateforme*, créer un testeur (ex. Nom: `Lucas`, Identifiant: `lucas.m`, Mot de passe: `Testeur2026!`).
+  3. Déconnecter l'ingénieur, basculer sur l'onglet testeur et se connecter avec ces identifiants.
+* **Option B (Identifiants préconfigurés)** :
+  * **Identifiant** : `thibauthd`
+  * **Mot de passe** : celui défini lors de la création initiale (min. 8 caractères).
+* **Rôle** : Consulter ses paires assignées et enregistrer des séances en kilomètres.
+
+---
+
 ## 1. Cadrage du besoin
 
 ### Utilisateur cible (Persona STAPS)
-* **Ingénieur R&D / Biomécanicien en équipement sportif** : conçoit des prototypes de running, doit suivre l'usure mécanique des composants (amorti mousse, semelle externe, tige) et récupérer les modèles dès qu'ils atteignent un seuil critique d'endurance.
-* **Athlète / Testeur terrain STAPS** : réalise des sorties de course à pied dans le cadre d'un protocole expérimental et doit renseigner simplement ses kilomètres sans friction technique.
+- **Ingénieur R&D / Biomécanicien en équipement sportif** : conçoit des prototypes de running, doit suivre l'usure mécanique des composants (amorti mousse EVA/PEBA, semelle externe, tige) et récupérer les modèles dès qu'ils atteignent un seuil critique d'endurance.
+- **Athlète / Testeur terrain STAPS** : réalise des séances de course à pied dans le cadre d'un protocole expérimental et doit renseigner simplement ses kilomètres sans friction technique.
 
 ### Problème résolu
-Le recueil papier ou sur tableur génère des pertes de données, un manque de synchronisation en temps réel et un dépassement fréquent du seuil limite de kilométrage, ce qui fausse les tests de fatigue mécanique en laboratoire.
+Le recueil papier ou sur tableur partagé engendre des retards de synchronisation, des oublis de saisie et des dépassements involontaires de durée de vie des mousses de prototypes. La plateforme automatise le calcul d'usure en direct et prévient du moment exact où la chaussure doit retourner au laboratoire pour analyse mécanique destructive.
 
-### Scénario d'usage principal
-1. **Entrée** : L'ingénieur R&D enregistre un nouveau prototype (`PROTO-PULSAR-3`, pointure 42.5) et l'assigne à un testeur (`thibauthd`).
-2. **Action terrain** : Le coureur réalise une sortie de $12.5\text{ km}$ et la valide sur son espace dédié.
-3. **Résultat attendu** : Le kilométrage cumulé passe à $12.5\text{ km}$, l'état d'usure progresse vers la cible ($150\text{ km}$), et une alerte de "Retour laboratoire" se déclenche automatiquement dès franchissement du seuil critique.
+### Scénario d'usage complet
+1. **Entrée Ingénieur** : L'ingénieur enregistre un prototype (`PROTO-AERO-01`, pointure `42.5`) et l'attribue à un testeur (`lucas.m`).
+2. **Entrée Testeur** : L'athlète se connecte après son entraînement et déclare une sortie de `12.5` km sur la paire attribuée.
+3. **Résultat attendu** : Le kilométrage cumulé passe à `12.5 km`. Si le cumul dépasse `150.0 km`, l'interface applique l'état visuel *« Retour laboratoire »* et l'ingénieur est averti qu'il doit récupérer l'équipement pour test de compression.
 
 ---
 
-## 2. Modèle de données & Persistance
+## 2. Modèle de données
 
-La base de données relationnelle sous **PostgreSQL 15** modélise les entités, leurs relations et leurs unités de mesure.
-
-### Schéma des tables
-
-| Table | Colonne | Type | Rôle / Contrainte | Unité |
-| :--- | :--- | :--- | :--- | :--- |
-| **`testeurs`** | `id` | `SERIAL PRIMARY KEY` | Identifiant unique | - |
-| | `nom` | `VARCHAR(100)` | Nom complet de l'athlète | - |
-| | `username` | `VARCHAR(60) UNIQUE` | Login (index unique insensible à la casse) | - |
-| | `password_hash` | `TEXT` | Hash cryptographique (`scrypt`) | - |
-| **`prototypes`** | `id` | `SERIAL PRIMARY KEY` | Identifiant unique de la paire | - |
-| | `reference` | `VARCHAR(50)` | Code usine du prototype | - |
-| | `pointure` | `VARCHAR(10)` | Taille normalisée | EU |
-| | `testeur_id` | `INTEGER REFERENCES testeurs(id)` | Clé étrangère vers l'assignataire | - |
-| | `km_total` | `NUMERIC(6,1)` | Kilométrage cumulé recalculé | km |
-| **`sorties`** | `id` | `SERIAL PRIMARY KEY` | Identifiant unique de la séance | - |
-| | `prototype_id` | `INTEGER REFERENCES prototypes(id)` | Clé étrangère avec suppression en cascade | - |
-| | `distance_km` | `NUMERIC(4,1)` | Distance parcourue lors de la séance | km |
-| | `created_at` | `TIMESTAMP` | Horodatage de l'enregistrement | - |
-
-### Requêtes SQL de référence
+Le schéma repose sur 3 tables relationnelles sous PostgreSQL :
 
 ```sql
--- Création et assignation d'un prototype
-INSERT INTO prototypes (reference, pointure, testeur_id, km_total)
-VALUES ('PROTO-PULSAR-3', '42.5', 1, 0.0);
+-- 1. Table des testeurs (comptes utilisateurs)
+CREATE TABLE IF NOT EXISTS testeurs (
+  id SERIAL PRIMARY KEY,
+  nom VARCHAR(100) NOT NULL,
+  username VARCHAR(60) NOT NULL,
+  password_hash TEXT NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE UNIQUE INDEX IF NOT EXISTS testeurs_username_lower_unique ON testeurs (LOWER(username));
 
--- Enregistrement d'une séance terrain
-INSERT INTO sorties (prototype_id, distance_km)
-VALUES (1, 12.5);
+-- 2. Table des prototypes de chaussures
+CREATE TABLE IF NOT EXISTS prototypes (
+  id SERIAL PRIMARY KEY,
+  reference VARCHAR(50) NOT NULL,
+  pointure VARCHAR(10) NOT NULL,
+  testeur_nom VARCHAR(100),
+  testeur_id INTEGER REFERENCES testeurs(id) ON DELETE SET NULL,
+  km_total NUMERIC DEFAULT 0,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 
--- Calcul d'agrégation et vérification du seuil d'usure R&D
-SELECT 
-    p.reference,
-    p.pointure,
-    COALESCE(SUM(s.distance_km), 0) AS total_km,
-    CASE 
-        WHEN COALESCE(SUM(s.distance_km), 0) >= 150.0 THEN 'RETOUR_LABORATOIRE'
-        ELSE 'EN_TEST'
-    END AS statut_usure
-FROM prototypes p
-LEFT JOIN sorties s ON s.prototype_id = p.id
-GROUP BY p.id;
+-- 3. Table des sorties / entraînements
+CREATE TABLE IF NOT EXISTS sorties (
+  id SERIAL PRIMARY KEY,
+  prototype_id INTEGER REFERENCES prototypes(id) ON DELETE CASCADE,
+  distance_km NUMERIC NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 ```
+
+### Explications des clés et des unités
+- **Clés primaires (`PRIMARY KEY`)** : Identifiant auto-incrémenté unique (`id`) pour garantir l'intégrité de chaque enregistrement.
+- **Clés étrangères (`REFERENCES`)** :
+  - `prototypes.testeur_id` pointe vers `testeurs.id` (`ON DELETE SET NULL`) pour désassigner proprement une paire si un compte testeur est archivé.
+  - `sorties.prototype_id` pointe vers `prototypes.id` (`ON DELETE CASCADE`) pour supprimer l'historique kilométrique associé si un prototype est détruit.
+- **Unités** : 
+  - `pointure` : taille normalisée EU (ex: `42.5`).
+  - `distance_km` et `km_total` : distance en kilomètres (`NUMERIC`), avec précision au dixième (ex: `12.5`).
 
 ---
 
-## 3. API & Règles métier
+## 3. API et règles métier
 
-### Calculs et transformations
-* **Agrégation kilométrique** : à chaque validation d'une séance de distance $d$, la distance est stockée et le kilométrage global du prototype est mis à jour :
-  $$KM_{total} = \sum_{i=1}^{n} d_i$$
-* **Seuil d'usure critique (150 km)** : règle métier R&D fixée pour rapatrier l'échantillon avant délaminage de la semelle.
-* **Indicateur de progression** :
-  $$\text{Usure (\%)} = \min\left(100, \frac{KM_{total}}{150} \times 100\right)$$
+### Règle d'usure et seuil critique (150 km)
+Le backend calcule et met à jour l'usure de façon incrémentale à chaque insertion de séance :
 
-### Contrôle et validation des entrées
-* Distance $d$ : doit vérifier $0 < d \le 100\text{ km}$ (rejet des valeurs nulles, négatives ou physiologiquement aberrantes pour une séance).
-* Nom d'utilisateur : conversion automatique en minuscules pour garantir l'unicité stricte.
-* Mots de passe : validation d'une longueur minimale ($\ge 8$ caractères) avant dérivation par sel cryptographique.
+```sql
+UPDATE prototypes 
+SET km_total = km_total + $1 
+WHERE id = $2;
+```
+
+L'état du prototype est calculé selon la règle suivante :
+$$\text{Statut} = \begin{cases} \text{En test}, & \text{si } km\_total < 150 \\ \text{Retour laboratoire requis}, & \text{si } km\_total \ge 150 \end{cases}$$
+
+### Contrôle des entrées (Backend & Validation)
+- Rejet des distances négatives ou nulles ($\le 0$).
+- Rejet des distances aberrantes pour une séance de course ($> 150\text{ km}$).
+- Rejet des mots de passe trop courts ($< 8\text{ caractères}$).
+- Échappement des paramètres SQL via requêtes préparées (`$1, $2`) pour prévenir toute injection SQL.
 
 ---
 
 ## 4. Interface React
 
-* **Visualisation claire** : Tableau de bord ingénieur avec compteurs globaux (paires actives, km cumulés, alertes retour labo) et fiches prototypes.
-* **Formulaires contextualisés** : Saisie rapide de la distance par les coureurs avec rappel de la pointure et des km déjà enregistrés.
-* **Gestion des erreurs lisible** :
-  * Bandeau d'alerte explicite en cas de problème réseau ou serveur.
-  * Validation visuelle des champs obligatoires (référence, pointure).
+L'interface développée avec **React 18** et **Vite** fournit une expérience réactive et contextualisée :
+- **Double espace dédié** : Bascule claire entre interface ingénieur et interface testeur.
+- **Formulaires validés** : Messages d'erreur explicites lors d'une saisie invalide (distance non numérique, champs obligatoires vides).
+- **Affichage des unités** : Toutes les valeurs métriques sont typées (ex: `km`, `EU`).
+- **Jauge d'usure visuelle** : Barre de progression dynamique indiquant l'avancement vers le seuil critique des 150 km.
 
 ---
 
-## 5. Intégration et tests de validation
+## 5. Intégration et plan de tests
 
-Tableau récapitulatif des essais de bout en bout :
-
-| Essai | Entrée testée | Résultat attendu | Résultat obtenu | Statut |
-| :--- | :--- | :--- | :--- | :--- |
-| **1. Cas normal** | Distance : `14.5` km sur prototype à `0.0` km | Le compteur passe à `14.5 km`, barre d'usure à $9.6\%$, enregistrement persistant en base | Compteur actualisé à $14.5\text{ km}$, persistance validée après rechargement | Conforme |
-| **2. Cas vide / invalide** | Clic sur "Ajouter" avec champ distance vide ou `0` | Refus de validation par l'API, message de saisie invalide, aucune ligne créée dans `sorties` | Message d'erreur visible, aucune modification de la base SQL | Conforme |
-| **3. Cas limite (seuil)** | Ajout de `35.5` km sur une paire ayant déjà `120.0` km (Total = $155.5\text{ km}$) | Le total dépasse $150\text{ km}$, l'état bascule immédiatement sur le badge "Retour laboratoire" | Badge d'alerte rouge affiché sur le prototype et incrémentation du compteur laboratoire | Conforme |
+| Type d'essai | Entrée utilisateur | Comportement attendu | Résultat obtenu | Validation |
+| :--- | :--- | :--- | :--- | :---: |
+| **Cas Normal** | Saisie d'une sortie de `12.5` km sur un prototype à `0.0` km | Incrémentation du total à `12.5 km`, persistance en base PostgreSQL | `km_total = 12.5`, affichage immédiat dans l'espace testeur et ingénieur | ✅ Validé |
+| **Cas Vide / Invalide** | Soumission du formulaire sans distance ou avec `0` | Blocage côté client et rejet API (statut 400), aucun ajout en base | Message d'erreur affiché, aucune modification du compteur | ✅ Validé |
+| **Cas Limite** | Ajout de `150.0` km sur un prototype neuf | Passage immédiat du prototype au statut critique "Retour laboratoire" | Le compteur passe à `150.0 km`, badge d'alerte rouge activé sur le dashboard | ✅ Validé |
 
 ---
 
-## 6. Déploiement et documentation technique
+## 6. Procédure de lancement reproductible
 
-### Procédure de reproduction locale
+### 1. Lancer la base PostgreSQL (Docker)
+```bash
+docker compose up -d
+```
 
-1. **Lancement de la base PostgreSQL** :
-   ```bash
-   docker compose up -d
-   ```
-2. **Configuration (`backend/.env`)** :
-   ```env
-   PORT=3000
-   DATABASE_URL=postgres://shoesdurability:durability@localhost:5432/running_tracker
-   SESSION_SECRET=cle-secrete-ihme-running-tracking-2026-tres-longue
-   ENGINEER_USERNAME=admin
-   ENGINEER_PASSWORD=IhmeRunning
-   ```
-3. **Lancement du backend** :
-   ```bash
-   cd backend && PORT=3000 node server.js
-   ```
-4. **Lancement du frontend** :
-   ```bash
-   cd frontend && npm run dev
-   ```
-   *Accès sur `http://localhost:5173`.*
+### 2. Démarrer le Backend
+```bash
+cd backend
+PORT=3000 node server.js
+```
+*Le serveur écoute sur [http://localhost:3000](http://localhost:3000).*
 
-### Circulation des données (Dataflow)
-1. **Saisie** : Le composant React émet une requête HTTP `POST /api/sorties` avec un cookie de session chiffré.
-2. **Backend Express** : Authentifie la session, vérifie que le testeur est bien le propriétaire de la paire, et ouvre une transaction SQL.
-3. **PostgreSQL** : Insère l'enregistrement dans la table `sorties` et recalcule la somme dans `prototypes`.
-4. **Retour UI** : L'API répond avec le prototype actualisé ; l'état local React se met à jour sans rechargement de page.
+### 3. Démarrer le Frontend
+```bash
+cd frontend
+npm run dev
+```
+*L'application est disponible sur [http://localhost:5173](http://localhost:5173).*
 
-### Limites actuelles & Perspectives d'amélioration
-* **Limite identifiée** : L'application comptabilise uniquement la distance brute en kilomètres, sans différencier le type de surface (piste synthétique, route asphaltée, sentier rocheux) ni la météo (sol sec vs humide), qui influencent fortement l'abrasion des gommes.
-* **Amélioration future** : Ajout d'un facteur d'abrasion par type de terrain et intégration d'un capteur de cadence Bluetooth Low Energy (BLE) pour corréler la force d'impact au vieillissement mécanique de la mousse amortissante.
+---
+
+## 7. Analyse critique, limites et perspectives
+
+- **Limite actuelle** : Le calcul de l'usure est purement quantitatif (distance kilométrique cumulée). Il ne prend pas encore en compte l'intensité de la séance (allure / fréquence cardiaque) ni la masse du coureur, facteurs influençant la dégradation du polymère d'amorti.
+- **Amélioration future** : Intégrer un coefficient de contrainte mécanique basé sur le poids du testeur et la vitesse moyenne pour calculer une "distance équivalente d'usure", ainsi qu'un export direct des données en format CSV pour les logiciels de biomécanique.
