@@ -23,7 +23,7 @@ L'application comporte deux espaces distincts accessibles depuis la page d'accue
   2. Dans la section *Accès à la plateforme*, créer un testeur (ex. Nom: `Lucas`, Identifiant: `lucas.m`, Mot de passe: `Testeur2026!`).
   3. Déconnecter l'ingénieur, basculer sur l'onglet testeur et se connecter avec ces identifiants.
 * **Option B (Identifiants préconfigurés)** :
-  * **Identifiant** : `lucas`
+  * **Identifiant** : `lucas.m`
   * **Mot de passe** : `Testeur2026!`
 * **Rôle** : Consulter ses paires assignées et enregistrer des séances en kilomètres.
 
