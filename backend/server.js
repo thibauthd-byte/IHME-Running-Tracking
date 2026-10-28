@@ -11,6 +11,8 @@ const sessionSecret = process.env.SESSION_SECRET || 'kinetic-lab-secret-session-
 const sessionCookie = 'rt_session';
 const sessionDuration = 12 * 60 * 60;
 const scrypt = promisify(crypto.scrypt);
+const defaultEngineerUser = process.env.ENGINEER_USERNAME || "admin";
+const defaultEngineerPass = process.env.ENGINEER_PASSWORD || "IhmeRunning";
 
 const engineerUsername = process.env.ENGINEER_USERNAME || 'admin';
 const engineerPassword = process.env.ENGINEER_PASSWORD || 'LaboSalomon2026!';

@@ -13,8 +13,14 @@ async function api(path, options = {}) {
     },
   });
   if (response.status === 204) return null;
-  const data = await response.json();
-  if (!response.ok) throw new Error(data.error || 'Une erreur est survenue.');
+  const text = await response.text();
+  let data = null;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    throw new Error(`Reponse inattendue (${response.status})`);
+  }
+  if (!response.ok) throw new Error(data?.error || `Erreur serveur (${response.status})`);
   return data;
 }
 
