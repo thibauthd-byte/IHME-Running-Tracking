@@ -7,8 +7,15 @@ Outil d'évaluation terrain et de gestion de cycle de vie pour les prototypes de
 * **Conteneur GHCR** : `ghcr.io/thibauthd-byte/ihme-running-tracking:latest`
 * **Port d’écoute** : 3000 (HTTP)
 
----
 
+## Accès et comptes de démonstration
+
+| Rôle | Identifiant | Mot de passe | Description |
+| :--- | :--- | :--- | :--- |
+| **Ingénieur R&D** | `admin` | `IhmeRunning` | Gestion complète de la flotte, création et attribution des paires, gestion des comptes. |
+| **Athlète Testeur** | `lucas.m` | `Testeur2026!` | Consultation de ses paires assignées et déclaration des sorties kilométriques. |
+
+---
 ## 1. Cadrage du besoin et scénario d'usage
 
 ### Utilisateurs cibles (STAPS & R&D Matériel)

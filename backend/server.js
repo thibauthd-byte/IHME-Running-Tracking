@@ -21,9 +21,9 @@ app.use(express.json({ limit: '20kb' }));
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   max: 4,
-  ssl: process.env.DATABASE_URL && process.env.DATABASE_URL.includes('sslmode=disable')
-    ? false
-    : { rejectUnauthorized: false }
+  ssl: process.env.DATABASE_URL && (process.env.DATABASE_URL.includes("sslmode=require") || process.env.DATABASE_URL.includes("ssl=true"))
+    ? { rejectUnauthorized: false }
+    : false
 });
 
 function safeEqual(left, right) {
@@ -147,6 +147,11 @@ async function initializeSchema() {
       SET testeur_id = t.id
       FROM testeurs t
       WHERE p.testeur_id IS NULL AND LOWER(trim(p.testeur_nom)) = LOWER(t.username);
+
+    -- Compte testeur de démonstration par défaut (Lucas Martin / Testeur2026!)
+    INSERT INTO testeurs (nom, username, password_hash)
+    VALUES ('Lucas Martin', 'lucas.m', '5558e8b28f8705c11082103f6f3284aa:170564e9a3eaeb05d5cb5282e4e1a0b5f54078174f88e1cf06eb553bb8bc05bf8c6c97a47ebfcfa9f8e02d6b38c2049e6231be8e663a89e900c14b53fa65239a')
+    ON CONFLICT (LOWER(username)) DO NOTHING;
   `);
 }
 
