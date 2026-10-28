@@ -10,90 +10,44 @@ const port = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-// Configuration PostgreSQL
-const dbUrl = process.env.DATABASE_URL || '';
-const poolConfig = {
+// Configuration PostgreSQL conforme au contrat
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
   max: 4,
+  ssl: process.env.DATABASE_URL && process.env.DATABASE_URL.includes('sslmode=disable')
+    ? false
+    : { rejectUnauthorized: false }
+});
+
+// Route de santé conforme aux spécifications exactes
+const healthHandler = async (req, res) => {
+  try {
+    if (process.env.DATABASE_URL) {
+      await pool.query('SELECT 1');
+    }
+    return res.status(200).json({ status: 'ok' });
+  } catch (err) {
+    console.error('Erreur healthcheck DB :', err.message);
+    return res.status(503).json({ status: 'unavailable' });
+  }
 };
 
-if (dbUrl) {
-  poolConfig.connectionString = dbUrl;
-  // N'activer SSL que si l'URL l'impose explicitement (ex: sslmode=require)
-  if (dbUrl.includes('sslmode=require') || dbUrl.includes('ssl=true')) {
-    poolConfig.ssl = { rejectUnauthorized: false };
-  } else {
-    poolConfig.ssl = false;
-  }
-}
+app.get('/api/health', healthHandler);
+app.get('/running-tracking/api/health', healthHandler);
 
-const pool = new Pool(poolConfig);
-
-pool.on('error', (err) => {
-  console.error('Erreur inattendue client PG idle :', err.message);
-});
-
-// Création des tables au démarrage
-async function initDb() {
-  if (!dbUrl) {
-    console.warn('DATABASE_URL non configurée.');
-    return;
-  }
-  try {
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS prototypes (
-        id SERIAL PRIMARY KEY,
-        reference VARCHAR(50) NOT NULL,
-        pointure VARCHAR(10) NOT NULL,
-        testeur_nom VARCHAR(100),
-        km_total NUMERIC DEFAULT 0,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      );
-      CREATE TABLE IF NOT EXISTS sorties (
-        id SERIAL PRIMARY KEY,
-        prototype_id INTEGER REFERENCES prototypes(id) ON DELETE CASCADE,
-        distance_km NUMERIC NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
-
-    const existing = await pool.query('SELECT count(*) FROM prototypes');
-    if (parseInt(existing.rows[0].count, 10) === 0) {
-      await pool.query(`
-        INSERT INTO prototypes (reference, pointure, testeur_nom, km_total)
-        VALUES 
-          ('S-LAB-PULSAR-3', '42.5', 'Lucas', 112.5),
-          ('GENESIS-EXP-02', '43', 'Lucas', 154.0),
-          ('GLIDE-MAX-TR', '41', NULL, 34.0);
-      `);
-      console.log('Données d’essai initialisées.');
-    }
-    console.log('Base PostgreSQL connectée avec succès.');
-  } catch (err) {
-    console.error('Erreur initialisation DB :', err.message);
-  }
-}
-initDb();
-
-const apiRouter = express.Router();
-
-apiRouter.get('/health', (req, res) => {
-  res.status(200).json({ status: 'ok' });
-});
-
-apiRouter.get('/prototypes', async (req, res) => {
+// 1. Lister tous les prototypes
+app.get('/api/prototypes', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM prototypes ORDER BY id ASC');
     res.json(result.rows);
   } catch (err) {
-    console.error('Erreur SELECT prototypes :', err.message);
-    res.status(500).json({ 
-      error: 'Erreur base de données',
-      details: err.message 
-    });
+    console.error(err);
+    res.status(500).json({ error: 'Erreur serveur' });
   }
 });
 
-apiRouter.post('/prototypes', async (req, res) => {
+// 2. Ajouter un prototype
+app.post('/api/prototypes', async (req, res) => {
   const { reference, pointure } = req.body;
   try {
     const result = await pool.query(
@@ -102,12 +56,13 @@ apiRouter.post('/prototypes', async (req, res) => {
     );
     res.status(201).json(result.rows[0]);
   } catch (err) {
-    console.error('Erreur INSERT prototype :', err.message);
-    res.status(500).json({ error: err.message });
+    console.error(err);
+    res.status(500).json({ error: 'Erreur serveur' });
   }
 });
 
-apiRouter.patch('/prototypes/:id/assigner', async (req, res) => {
+// 3. Assigner un testeur
+app.patch('/api/prototypes/:id/assigner', async (req, res) => {
   const { id } = req.params;
   const { testeur_nom } = req.body;
   try {
@@ -117,43 +72,43 @@ apiRouter.patch('/prototypes/:id/assigner', async (req, res) => {
     );
     res.json(result.rows[0]);
   } catch (err) {
-    console.error('Erreur UPDATE assigner :', err.message);
-    res.status(500).json({ error: err.message });
+    console.error(err);
+    res.status(500).json({ error: 'Erreur serveur' });
   }
 });
 
-apiRouter.post('/sorties', async (req, res) => {
+// 4. Enregistrer une sortie et mettre à jour le kilométrage
+app.post('/api/sorties', async (req, res) => {
   const { prototype_id, distance_km } = req.body;
   try {
     await pool.query(
       'INSERT INTO sorties (prototype_id, distance_km) VALUES ($1, $2)',
       [prototype_id, distance_km]
     );
+
     const result = await pool.query(
       'UPDATE prototypes SET km_total = km_total + $1 WHERE id = $2 RETURNING *',
       [distance_km, prototype_id]
     );
+
     res.status(201).json(result.rows[0]);
   } catch (err) {
-    console.error('Erreur INSERT sortie :', err.message);
-    res.status(500).json({ error: err.message });
+    console.error(err);
+    res.status(500).json({ error: 'Erreur serveur' });
   }
 });
 
-// Enregistrement des routes API
-app.use('/api', apiRouter);
-app.use('/running-tracking/api', apiRouter);
-
-// Fichiers statiques du frontend Vite
+// Distribution des fichiers statiques React en production
 const distPath = path.join(__dirname, '../dist');
 app.use(express.static(distPath));
 app.use('/running-tracking', express.static(distPath));
 
-// Fallback SPA
-app.get('{*splat}', (req, res) => {
+// Redirection SPA pour React
+app.get('*', (req, res) => {
   res.sendFile(path.join(distPath, 'index.html'));
 });
 
+// Écoute sur 0.0.0.0
 app.listen(port, '0.0.0.0', () => {
-  console.log(`Serveur prêt sur port ${port}`);
+  console.log(`Serveur API lancé sur http://0.0.0.0:${port}`);
 });
