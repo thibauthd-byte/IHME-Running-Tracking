@@ -1,4 +1,4 @@
-require('dotenv').config();
+require("dotenv").config({ path: require("path").resolve(__dirname, ".env") });
 const path = require('path');
 const crypto = require('crypto');
 const { promisify } = require('util');
