@@ -1,9 +1,20 @@
+CREATE TABLE testeurs (
+    id SERIAL PRIMARY KEY,
+    nom VARCHAR(100) NOT NULL,
+    username VARCHAR(60) NOT NULL,
+    password_hash TEXT
+);
+
+CREATE UNIQUE INDEX testeurs_username_lower_unique
+    ON testeurs (LOWER(username));
+
 CREATE TABLE prototypes (
     id SERIAL PRIMARY KEY,
     reference VARCHAR(50) NOT NULL,
     pointure NUMERIC(3, 1) NOT NULL,
     testeur_nom VARCHAR(100) DEFAULT NULL,
-    km_total NUMERIC(6, 1) DEFAULT 0.0
+    km_total NUMERIC(6, 1) DEFAULT 0.0,
+    testeur_id INTEGER REFERENCES testeurs(id) ON DELETE SET NULL
 );
 
 CREATE TABLE sorties (

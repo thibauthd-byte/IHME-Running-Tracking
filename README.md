@@ -21,7 +21,7 @@ Les mousses d'amorti (EVA / TPU supercritique) et les semelles extérieures subi
 ### Scénario utilisateur nominal
 1. **Création** : l’ingénieur enregistre un nouveau prototype (`S-LAB-PULSAR-3`, pointure `42.5 EU`).
 2. **Assignation** : l’ingénieur attribue la paire au testeur `Lucas`.
-3. **Saisie terrain** : l'athlète bascule sur la « Vue Testeur », sélectionne sa paire et déclare une séance de `18.5 km`.
+3. **Saisie terrain** : le testeur se connecte à son espace privé, sélectionne l'une de ses paires et déclare une séance de `18.5 km`.
 4. **Calcul & Alerte** : le compteur passe à `18.5 km` (12 % du cycle). Dès que le seuil de `150.0 km` est franchi, l'interface déclenche l'alerte `⚠️ RETOUR LABO REQUIS` pour retour immédiat en atelier mécanique.
 
 ---
@@ -31,11 +31,20 @@ Les mousses d'amorti (EVA / TPU supercritique) et les semelles extérieures subi
 ### Schéma relationnel (SQL)
 
 ```sql
+-- Comptes des testeurs (mot de passe stocké sous forme de hash scrypt)
+CREATE TABLE IF NOT EXISTS testeurs (
+  id SERIAL PRIMARY KEY,
+  nom VARCHAR(100) NOT NULL,
+  username VARCHAR(60) NOT NULL UNIQUE,
+  password_hash TEXT
+);
+
 -- Table des prototypes suivis
 CREATE TABLE IF NOT EXISTS prototypes (
   id SERIAL PRIMARY KEY,
   reference VARCHAR(50) NOT NULL,
   pointure VARCHAR(10) NOT NULL,
+  testeur_id INTEGER REFERENCES testeurs(id) ON DELETE SET NULL,
   testeur_nom VARCHAR(100),
   km_total NUMERIC DEFAULT 0,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -51,8 +60,9 @@ CREATE TABLE IF NOT EXISTS sorties (
 ```
 
 ### Justification des types, clés et unités
-* `prototypes.id` / `sorties.id` : clés primaires auto-incrémentées (`SERIAL`).
+* `prototypes.id`, `testeurs.id` et `sorties.id` : clés primaires auto-incrémentées (`SERIAL`).
 * `sorties.prototype_id` : clé étrangère reliant chaque run à sa chaussure, avec cascade de suppression (`ON DELETE CASCADE`).
+* `prototypes.testeur_id` : compte auquel la paire est attribuée ; sa suppression libère la paire.
 * `pointure` : taille normalisée Europe (EU), ex. `42.5`.
 * `distance_km` et `km_total` : type `NUMERIC` assurant la précision décimale sur les distances en kilomètres (ex. `12.4 km`).
 
@@ -62,10 +72,25 @@ CREATE TABLE IF NOT EXISTS sorties (
 
 ### Endpoints REST (routes `/api` et `/running-tracking/api`)
 * `GET /api/health` : sonde de disponibilité (renvoie `{ status: "ok" }`).
-* `GET /api/prototypes` : liste toutes les paires avec leur kilométrage cumulé.
-* `POST /api/prototypes` : enregistrement d'une paire (payload : `{ reference, pointure }`).
-* `PATCH /api/prototypes/:id/assigner` : attribution d'un testeur (payload : `{ testeur_nom }`).
-* `POST /api/sorties` : saisie d'un entraînement (payload : `{ prototype_id, distance_km }`).
+* `POST /api/auth/login`, `GET /api/auth/me`, `POST /api/auth/logout` : connexion par rôle et gestion de session.
+* `GET /api/prototypes` : liste toutes les paires pour l'ingénieur, uniquement les paires attribuées au testeur connecté pour son compte.
+* `POST /api/prototypes`, `DELETE /api/prototypes/:id` : création et suppression d'une paire (ingénieur).
+* `PATCH /api/prototypes/:id/assigner` : attribution d'une paire (payload : `{ testeur_id }`, ingénieur).
+* `GET /api/testeurs`, `POST /api/testeurs`, `PATCH /api/testeurs/:id` et `DELETE /api/testeurs/:id` : gestion des comptes testeurs (ingénieur).
+* `POST /api/sorties` : saisie d'une sortie, limitée aux paires attribuées au testeur connecté.
+
+### Accès et configuration
+* L'ingénieur se connecte avec `ENGINEER_USERNAME` et `ENGINEER_PASSWORD`, configurés dans l'environnement du serveur.
+* Pour un lancement local, ajoutez ces variables ainsi que `SESSION_SECRET` dans `backend/.env` (sans committer ce fichier) :
+  ```dotenv
+  ENGINEER_USERNAME=ingenieur
+  ENGINEER_PASSWORD=<mot-de-passe-long-et-unique>
+  SESSION_SECRET=<secret-aleatoire>
+  ```
+* Les comptes testeurs sont créés et administrés depuis l'espace ingénieur. Un mot de passe initial d'au moins 10 caractères est défini à la création ; les anciens testeurs présents dans la base doivent recevoir un mot de passe depuis cette page avant leur première connexion.
+* `SESSION_SECRET` doit être une valeur aléatoire durable d'au moins 32 caractères en production (par exemple générée avec `openssl rand -hex 32`). Le cookie de session est `HttpOnly`, `SameSite=Strict`, sécurisé en production et expire après 12 heures.
+* Pour une base déjà initialisée, le serveur ajoute automatiquement la table des comptes et la colonne d'attribution ; les prototypes déjà nommés sont associés à des comptes testeurs inactifs, que l'ingénieur peut activer en leur définissant un mot de passe.
+* Les rôles et les droits sont vérifiés par l'API : un testeur ne peut ni lister les autres testeurs, ni lire les paires d'autrui, ni modifier leurs prototypes ou enregistrer une sortie sur leurs paires.
 
 ### Algorithmes et règles de calcul
 1. **Incrémentation atomique** :
@@ -98,5 +123,5 @@ CREATE TABLE IF NOT EXISTS sorties (
 * **Hébergement** : infrastructure Jelastic / Infomaniak sous le préfixe `/running-tracking/`.
 
 ### Limites et perspectives d'évolution
-* **Limite actuelle** : sélection libre du profil coureur sans authentification par mot de passe.
+* **Accès testeur** : authentification individuelle et périmètre des données appliqué côté serveur.
 * **Amélioration R&D** : export automatisé des rapports d'essais en format CSV/PDF pour les ingénieurs matériaux.
