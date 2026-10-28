@@ -12,14 +12,14 @@ L'application comporte deux espaces distincts accessibles depuis la page d'accue
 * **URL** : [http://localhost:5173](http://localhost:5173)
 * **Onglet / Mode** : Sélectionner **"Connexion ingénieur"**
 * **Identifiant** : `admin`
-* **Mot de passe** : `IhmeRunning`
+* **Mot de passe** : `LaboSalomon2026!`
 * **Rôle** : Créer des prototypes, créer des comptes pour les coureurs, leur assigner des chaussures et suivre l'alerte des 150 km.
 
 ### 2. Espace Testeur / Athlète (Saisie terrain)
 * **URL** : [http://localhost:5173](http://localhost:5173)
 * **Onglet / Mode** : Sélectionner **"Connexion testeur"**
 * **Option A (Compte créé par l'ingénieur)** :
-  1. Se connecter d'abord en ingénieur (`admin` / `IhmeRunning`).
+  1. Se connecter d'abord en ingénieur (`admin` / `LaboSalomon2026!`).
   2. Dans la section *Accès à la plateforme*, créer un testeur (ex. Nom: `Lucas`, Identifiant: `lucas.m`, Mot de passe: `Testeur2026!`).
   3. Déconnecter l'ingénieur, basculer sur l'onglet testeur et se connecter avec ces identifiants.
 * **Option B (Identifiants préconfigurés)** :
